@@ -40,7 +40,7 @@ mod box_view;
 mod button;
 mod canvas;
 mod checkbox;
-//mod classic;
+mod classic;
 mod dialog;
 mod dummy;
 mod edit_view;
