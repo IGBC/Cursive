@@ -105,6 +105,7 @@ pub mod rect;
 pub mod theme;
 pub mod align;
 pub mod menu;
+pub mod middleware;
 pub mod direction;
 pub mod utils;
 
