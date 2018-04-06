@@ -56,11 +56,6 @@ impl Classic {
         self.focus_view(&view::Selector::Id(id))
     }
 
-    // /// Moves the focus to the view identified by `sel`.
-    // pub fn focus(&mut self, sel: &view::Selector) -> Result<(), ()> {
-    //     self.screen_mut().focus_view(sel)
-    // }
-
     /// Access the menu tree used by the menubar.
     ///
     /// This allows to add menu items to the menubar.
