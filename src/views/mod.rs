@@ -67,6 +67,7 @@ pub use self::box_view::BoxView;
 pub use self::button::Button;
 pub use self::canvas::Canvas;
 pub use self::checkbox::Checkbox;
+pub use self::classic::Classic;
 pub use self::dialog::{Dialog, DialogFocus};
 pub use self::dummy::DummyView;
 pub use self::edit_view::EditView;
