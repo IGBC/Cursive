@@ -1,5 +1,6 @@
 use backend;
 use backend::Backend;
+use direction;
 use event::{Callback, Event, EventResult};
 use printer::Printer;
 use std::any::Any;
@@ -8,11 +9,29 @@ use std::path::Path;
 use std::sync::mpsc;
 use theme;
 use vec::Vec2;
-use view::{self, Finder, View};
-use views;
+use view::{self, Finder, IntoBoxedView, Position, View};
+use views::{self, LayerPosition};
 
 /// Identifies a screen in the cursive root.
 pub type ScreenId = usize;
+
+/// Asynchronous callback function trait.
+///
+/// Every `FnOnce(&mut Cursive) -> () + Send` automatically
+/// implements this.
+///
+/// This is a workaround only because `Box<FnOnce()>` is not
+/// working and `FnBox` is unstable.
+pub trait CbFunc: Send {
+    /// Calls the function.
+    fn call_box(self: Box<Self>, &mut Cursive);
+}
+
+impl<F: FnOnce(&mut Cursive) -> () + Send> CbFunc for F {
+    fn call_box(self: Box<Self>, siv: &mut Cursive) {
+        (*self)(siv)
+    }
+}
 
 /// Central part of the cursive library.
 ///
@@ -23,19 +42,22 @@ pub type ScreenId = usize;
 /// It uses a list of screen, with one screen active at a time.
 pub struct Cursive {
     theme: theme::Theme,
-    root: views::Classic,
+    screens: Vec<views::StackView>,
     global_callbacks: HashMap<Event, Vec<Callback>>,
+    menubar: views::Menubar,
 
     // Last layer sizes of the stack view.
     // If it changed, clear the screen.
     last_sizes: Vec<Vec2>,
 
+    active_screen: ScreenId,
+
     running: bool,
 
     backend: Box<backend::Backend>,
 
-    cb_source: mpsc::Receiver<Box<Callback>>,
-    cb_sink: mpsc::Sender<Box<Callback>>,
+    cb_source: mpsc::Receiver<Box<CbFunc>>,
+    cb_sink: mpsc::Sender<Box<CbFunc>>,
 }
 
 new_default!(Cursive);
@@ -58,9 +80,11 @@ impl Cursive {
 
         Cursive {
             theme: theme,
-            root: views::Classic::new(),
+            screens: vec![views::StackView::new()],
             last_sizes: Vec::new(),
             global_callbacks: HashMap::new(),
+            menubar: views::Menubar::new(),
+            active_screen: 0,
             running: true,
             cb_source: rx,
             cb_sink: tx,
@@ -94,8 +118,75 @@ impl Cursive {
     /// ```
     ///
     /// [`set_fps`]: #method.set_fps
-    pub fn cb_sink(&self) -> &mpsc::Sender<Box<Callback>> {
+    pub fn cb_sink(&self) -> &mpsc::Sender<Box<CbFunc>> {
         &self.cb_sink
+    }
+
+    /// Selects the menubar.
+    pub fn select_menubar(&mut self) {
+        self.menubar.take_focus(direction::Direction::none());
+    }
+
+    /// Sets the menubar autohide feature.
+    ///
+    /// * When enabled (default), the menu is only visible when selected.
+    /// * When disabled, the menu is always visible and reserves the top row.
+    pub fn set_autohide_menu(&mut self, autohide: bool) {
+        self.menubar.autohide = autohide;
+    }
+
+    /// Access the menu tree used by the menubar.
+    ///
+    /// This allows to add menu items to the menubar.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # extern crate cursive;
+    /// #
+    /// # use cursive::{Cursive, event};
+    /// # use cursive::views::{Dialog};
+    /// # use cursive::traits::*;
+    /// # use cursive::menu::*;
+    /// #
+    /// # fn main() {
+    /// let mut siv = Cursive::new();
+    ///
+    /// siv.menubar()
+    ///    .add_subtree("File",
+    ///         MenuTree::new()
+    ///             .leaf("New", |s| s.add_layer(Dialog::info("New file!")))
+    ///             .subtree("Recent", MenuTree::new().with(|tree| {
+    ///                 for i in 1..100 {
+    ///                     tree.add_leaf(format!("Item {}", i), |_| ())
+    ///                 }
+    ///             }))
+    ///             .delimiter()
+    ///             .with(|tree| {
+    ///                 for i in 1..10 {
+    ///                     tree.add_leaf(format!("Option {}", i), |_| ());
+    ///                 }
+    ///             })
+    ///             .delimiter()
+    ///             .leaf("Quit", |s| s.quit()))
+    ///    .add_subtree("Help",
+    ///         MenuTree::new()
+    ///             .subtree("Help",
+    ///                      MenuTree::new()
+    ///                          .leaf("General", |s| {
+    ///                              s.add_layer(Dialog::info("Help message!"))
+    ///                          })
+    ///                          .leaf("Online", |s| {
+    ///                              s.add_layer(Dialog::info("Online help?"))
+    ///                          }))
+    ///             .leaf("About",
+    ///                   |s| s.add_layer(Dialog::info("Cursive v0.0.0"))));
+    ///
+    /// siv.add_global_callback(event::Key::Esc, |s| s.select_menubar());
+    /// # }
+    /// ```
+    pub fn menubar(&mut self) -> &mut views::Menubar {
+        &mut self.menubar
     }
 
     /// Returns the currently used theme.
@@ -150,13 +241,47 @@ impl Cursive {
     }
 
     /// Returns a reference to the currently active screen.
-    pub fn root(&self) -> &views::Classic {
-        &self.root
+    pub fn screen(&self) -> &views::StackView {
+        let id = self.active_screen;
+        &self.screens[id]
     }
 
     /// Returns a mutable reference to the currently active screen.
-    pub fn root_mut(&mut self) -> &mut views::Classic {
-        &mut self.root
+    pub fn screen_mut(&mut self) -> &mut views::StackView {
+        let id = self.active_screen;
+        &mut self.screens[id]
+    }
+
+    /// Returns the id of the currently active screen.
+    pub fn active_screen(&self) -> ScreenId {
+        self.active_screen
+    }
+
+    /// Adds a new screen, and returns its ID.
+    pub fn add_screen(&mut self) -> ScreenId {
+        let res = self.screens.len();
+        self.screens.push(views::StackView::new());
+        res
+    }
+
+    /// Convenient method to create a new screen, and set it as active.
+    pub fn add_active_screen(&mut self) -> ScreenId {
+        let res = self.add_screen();
+        self.set_screen(res);
+        res
+    }
+
+    /// Sets the active screen. Panics if no such screen exist.
+    pub fn set_screen(&mut self, screen_id: ScreenId) {
+        if screen_id >= self.screens.len() {
+            panic!(
+                "Tried to set an invalid screen ID: {}, but only {} \
+                 screens present.",
+                screen_id,
+                self.screens.len()
+            );
+        }
+        self.active_screen = screen_id;
     }
 
     /// Tries to find the view pointed to by the given selector.
@@ -198,7 +323,7 @@ impl Cursive {
         V: View + Any,
         F: FnOnce(&mut V) -> R,
     {
-        self.root_mut().call_on(sel, callback)
+        self.screen_mut().call_on(sel, callback)
     }
 
     /// Tries to find the view identified by the given id.
@@ -271,7 +396,7 @@ impl Cursive {
 
     /// Moves the focus to the view identified by `sel`.
     pub fn focus(&mut self, sel: &view::Selector) -> Result<(), ()> {
-        self.root_mut().focus_view(sel)
+        self.screen_mut().focus_view(sel)
     }
 
     /// Adds a global callback.
@@ -321,6 +446,48 @@ impl Cursive {
         self.global_callbacks.remove(&event);
     }
 
+    /// Add a layer to the current screen.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # extern crate cursive;
+    /// # use cursive::*;
+    /// # fn main() {
+    /// let mut siv = Cursive::new();
+    ///
+    /// siv.add_layer(views::TextView::new("Hello world!"));
+    /// # }
+    /// ```
+    pub fn add_layer<T>(&mut self, view: T)
+    where
+        T: IntoBoxedView,
+    {
+        self.screen_mut().add_layer(view);
+    }
+
+    /// Adds a new full-screen layer to the current screen.
+    ///
+    /// Fullscreen layers have no shadow.
+    pub fn add_fullscreen_layer<T>(&mut self, view: T)
+    where
+        T: IntoBoxedView,
+    {
+        self.screen_mut().add_fullscreen_layer(view);
+    }
+
+    /// Convenient method to remove a layer from the current screen.
+    pub fn pop_layer(&mut self) -> Option<Box<View>> {
+        self.screen_mut().pop_layer()
+    }
+
+    /// Convenient stub forwarding layer repositioning.
+    pub fn reposition_layer(
+        &mut self, layer: LayerPosition, position: Position
+    ) {
+        self.screen_mut().reposition_layer(layer, position);
+    }
+
     // Handles a key event when it was ignored by the current view
     fn on_event(&mut self, event: Event) {
         let cb_list = match self.global_callbacks.get(&event) {
@@ -345,11 +512,13 @@ impl Cursive {
 
     fn layout(&mut self) {
         let size = self.screen_size();
-        self.root_mut().layout(size);
+        let offset = if self.menubar.autohide { 0 } else { 1 };
+        let size = size.saturating_sub((0, offset));
+        self.screen_mut().layout(size);
     }
 
     fn draw(&mut self) {
-        let sizes = self.root().screen().layer_sizes();
+        let sizes = self.screen().layer_sizes();
         if self.last_sizes != sizes {
             self.clear();
             self.last_sizes = sizes;
@@ -358,7 +527,30 @@ impl Cursive {
         let printer =
             Printer::new(self.screen_size(), &self.theme, &self.backend);
 
-        self.root.draw(&printer);
+        let selected = self.menubar.receive_events();
+
+        // Print the stackview background before the menubar
+        let offset = if self.menubar.autohide { 0 } else { 1 };
+        let id = self.active_screen;
+        let sv_printer = printer.offset((0, offset), !selected);
+
+        self.screens[id].draw_bg(&sv_printer);
+
+        // Draw the currently active screen
+        // If the menubar is active, nothing else can be.
+        // Draw the menubar?
+        if self.menubar.visible() {
+            let printer = printer.sub_printer(
+                Vec2::zero(),
+                printer.size,
+                self.menubar.receive_events(),
+            );
+            self.menubar.draw(&printer);
+        }
+
+        // finally draw stackview layers
+        // using variables from above
+        self.screens[id].draw_fg(&sv_printer);
     }
 
     /// Returns `true` until [`quit(&mut self)`] is called.
@@ -397,7 +589,7 @@ impl Cursive {
     /// [`run(&mut self)`]: #method.run
     pub fn step(&mut self) {
         while let Ok(cb) = self.cb_source.try_recv() {
-            cb(self);
+            cb.call_box(self);
         }
 
         // Do we need to redraw everytime?
@@ -421,16 +613,34 @@ impl Cursive {
             self.clear();
         }
 
+        if let Event::Mouse {
+            event, position, ..
+        } = event
+        {
+            if event.grabs_focus() && !self.menubar.autohide
+                && !self.menubar.has_submenu()
+                && position.y == 0
+            {
+                self.select_menubar();
+            }
+        }
+
         // Event dispatch order:
-        // * Root element:
+        // * Focused element:
+        //     * Menubar (if active)
+        //     * Current screen (top layer)
         // * Global callbacks
-        
-        match self.root_mut().on_event(event.relativized((0, 0))) {
-            // If the event was ignored,
-            // it is our turn to play with it.
-            EventResult::Ignored => self.on_event(event),
-            EventResult::Consumed(None) => (),
-            EventResult::Consumed(Some(cb)) => cb(self),
+        if self.menubar.receive_events() {
+            self.menubar.on_event(event).process(self);
+        } else {
+            let offset = if self.menubar.autohide { 0 } else { 1 };
+            match self.screen_mut().on_event(event.relativized((0, offset))) {
+                // If the event was ignored,
+                // it is our turn to play with it.
+                EventResult::Ignored => self.on_event(event),
+                EventResult::Consumed(None) => (),
+                EventResult::Consumed(Some(cb)) => cb(self),
+            }
         }
     }
 

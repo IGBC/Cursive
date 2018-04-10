@@ -10,7 +10,7 @@ fn main() {
     siv.add_global_callback('q', Cursive::quit);
 
     // Add a simple view
-    siv.add_layer(TextView::new(
+    siv.root_mut().add_layer(TextView::new(
         "Hello World!\n\
          Press q to quit the application.",
     ));

@@ -149,20 +149,20 @@ impl MenuPopup {
 
         EventResult::with_cb(move |s| {
             let action_cb = action_cb.clone();
-            s.screen_mut().add_layer_at(
+            s.root_mut().screen_mut().add_layer_at(
                 Position::parent(offset),
                 OnEventView::new(MenuPopup::new(Rc::clone(&tree)).on_action(
                     move |s| {
                         // This will happen when the subtree popup
                         // activates something;
                         // First, remove ourselve.
-                        s.pop_layer();
+                        s.root_mut().pop_layer();
                         if let Some(ref action_cb) = action_cb {
                             action_cb.clone()(s);
                         }
                     },
                 )).on_event(Key::Left, |s| {
-                    s.pop_layer();
+                    s.root_mut().pop_layer();
                 }),
             );
         })
@@ -175,7 +175,7 @@ impl MenuPopup {
                 let action_cb = self.on_action.clone();
                 EventResult::with_cb(move |s| {
                     // Remove ourselves from the face of the earth
-                    s.pop_layer();
+                    s.root_mut().pop_layer();
                     // If we had prior orders, do it now.
                     if let Some(ref action_cb) = action_cb {
                         action_cb.clone()(s);
@@ -195,7 +195,7 @@ impl MenuPopup {
             if let Some(ref cb) = dismiss_cb {
                 cb.clone()(s);
             }
-            s.pop_layer();
+            s.root_mut().pop_layer();
         })
     }
 }

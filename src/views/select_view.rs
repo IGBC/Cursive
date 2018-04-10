@@ -599,10 +599,10 @@ impl<T: 'static> SelectView<T> {
             // So that we are locked to the parent view.
             // A nice effect is that window resizes will keep both
             // layers together.
-            let current_offset = s.screen().offset();
+            let current_offset = s.root().screen().offset();
             let offset = offset.signed() - current_offset;
             // And finally, put the view in view!
-            s.screen_mut().add_layer_at(
+            s.root_mut().screen_mut().add_layer_at(
                 Position::parent(offset),
                 MenuPopup::new(tree).focus(focus),
             );

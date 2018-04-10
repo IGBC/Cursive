@@ -30,8 +30,18 @@ pub struct Classic {
 }
 
 impl Classic {
+    /// Creates new Classic
+    pub fn new() -> Self {
+        Classic {
+            screens: vec![views::StackView::new()],
+            menubar: views::Menubar::new(),
+            active_screen: 0,
+            last_sizes: Vec::new(),
+        }
+    }
+
     /// Utility function to deref current StackView
-    fn screen(&self) -> &views::StackView {
+    pub fn screen(&self) -> &views::StackView {
         let id = self.active_screen;
         &self.screens[id]
     }

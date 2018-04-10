@@ -107,39 +107,6 @@ pub trait Middleware {
         self.get_backend().set_refresh_rate(fps)
     }
 
-    /// Adds a global callback.
-    ///
-    /// Will be triggered on the given key press when no view catches it.
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # extern crate cursive;
-    /// # use cursive::*;
-    /// # fn main() {
-    /// let mut siv = Cursive::new();
-    ///
-    /// siv.add_global_callback('q', |s| s.quit());
-    /// # }
-    /// ```
-    fn add_global_callback(&mut self, event: Event, cb: FnMiddleware);
-
-    /// Removes any callback tied to the given event.
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # extern crate cursive;
-    /// # use cursive::*;
-    /// # fn main() {
-    /// let mut siv = Cursive::new();
-    ///
-    /// siv.add_global_callback('q', |s| s.quit());
-    /// siv.clear_global_callbacks('q');
-    /// # }
-    /// ```
-    fn clear_global_callbacks(&mut self, event: Event);
-
     /// Returns the size of the screen, in characters.
     fn screen_size(&self) -> Vec2 {
         let (x, y) = self.get_backend().screen_size();
@@ -149,6 +116,10 @@ pub trait Middleware {
             y: y as usize,
         }
     }
+
+    fn run();
+
+    fn step();
 
     /// returns mutable copy of the backend.
     fn get_backend(&self) -> &mut backend::Backend;

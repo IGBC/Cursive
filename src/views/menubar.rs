@@ -227,30 +227,30 @@ fn show_child(s: &mut Cursive, offset: Vec2, menu: Rc<MenuTree>) {
     // (If the view itself listens for a `left` or `right` press, it will
     // consume it before our OnEventView. This means sub-menus can properly
     // be entered.)
-    s.screen_mut().add_layer_at(
+    s.root_mut().screen_mut().add_layer_at(
         Position::absolute(offset),
         OnEventView::new(
             MenuPopup::new(menu)
-                .on_dismiss(|s| s.select_menubar())
-                .on_action(|s| s.menubar().state = State::Inactive),
+                .on_dismiss(|s| s.root_mut().select_menubar())
+                .on_action(|s| s.root_mut().menubar().state = State::Inactive),
         ).on_event(Key::Right, |s| {
-            s.pop_layer();
-            s.select_menubar();
+            s.root_mut().pop_layer();
+            s.root_mut().select_menubar();
             // Act as if we sent "Right" then "Down"
-            s.menubar().on_event(Event::Key(Key::Right)).process(s);
+            s.root_mut().menubar().on_event(Event::Key(Key::Right)).process(s);
             if let EventResult::Consumed(Some(cb)) =
-                s.menubar().on_event(Event::Key(Key::Down))
+                s.root_mut().menubar().on_event(Event::Key(Key::Down))
             {
                 cb(s);
             }
         })
             .on_event(Key::Left, |s| {
-                s.pop_layer();
-                s.select_menubar();
+                s.root_mut().pop_layer();
+                s.root_mut().select_menubar();
                 // Act as if we sent "Left" then "Down"
-                s.menubar().on_event(Event::Key(Key::Left)).process(s);
+                s.root_mut().menubar().on_event(Event::Key(Key::Left)).process(s);
                 if let EventResult::Consumed(Some(cb)) =
-                    s.menubar().on_event(Event::Key(Key::Down))
+                    s.root_mut().menubar().on_event(Event::Key(Key::Down))
                 {
                     cb(s);
                 }

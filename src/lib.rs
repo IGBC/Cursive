@@ -105,7 +105,7 @@ pub mod rect;
 pub mod theme;
 pub mod align;
 pub mod menu;
-pub mod middleware;
+//pub mod middleware;
 pub mod direction;
 pub mod utils;
 
@@ -121,7 +121,7 @@ mod utf8;
 #[doc(hidden)]
 pub mod backend;
 
-pub use cursive::{CbFunc, Cursive, ScreenId};
+pub use cursive::{Cursive, ScreenId};
 pub use printer::Printer;
 pub use with::With;
 pub use xy::XY;

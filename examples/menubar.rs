@@ -17,7 +17,7 @@ fn main() {
     let counter = AtomicUsize::new(1);
 
     // The menubar is a list of (label, menu tree) pairs.
-    siv.menubar()
+    siv.root_mut().menubar()
         // We add a new "File" tree
         .add_subtree("File",
              MenuTree::new()
@@ -27,11 +27,11 @@ fn main() {
                      // in the list of "Recent" items.
                      let i = counter.fetch_add(1, Ordering::Relaxed);
                      let filename = format!("New {}", i);
-                     s.menubar().find_subtree("File").unwrap()
+                     s.root_mut().menubar().find_subtree("File").unwrap()
                                 .find_subtree("Recent").unwrap()
                                 .insert_leaf(0, filename, |_| ());
 
-                     s.add_layer(Dialog::info("New file!"));
+                     s.root_mut().add_layer(Dialog::info("New file!"));
                  })
                  // ... and of sub-trees, which open up when selected.
                  .subtree("Recent",
@@ -57,15 +57,15 @@ fn main() {
                  .subtree("Help",
                           MenuTree::new()
                               .leaf("General", |s| {
-                                  s.add_layer(Dialog::info("Help message!"))
+                                  s.root_mut().add_layer(Dialog::info("Help message!"))
                               })
                               .leaf("Online", |s| {
                                   let text = "Google it yourself!\n\
                                               Kids, these days...";
-                                  s.add_layer(Dialog::info(text))
+                                  s.root_mut().add_layer(Dialog::info(text))
                               }))
                  .leaf("About",
-                       |s| s.add_layer(Dialog::info("Cursive v0.0.0"))))
+                       |s| s.root_mut().add_layer(Dialog::info("Cursive v0.0.0"))))
         .add_delimiter()
         .add_leaf("Quit", |s| s.quit());
 
@@ -75,9 +75,9 @@ fn main() {
 
     // siv.set_autohide_menu(false);
 
-    siv.add_global_callback(Key::Esc, |s| s.select_menubar());
+    siv.add_global_callback(Key::Esc, |s| s.root_mut().select_menubar());
 
-    siv.add_layer(Dialog::text("Hit <Esc> to show the menu!"));
+    siv.root_mut().add_layer(Dialog::text("Hit <Esc> to show the menu!"));
 
     siv.run();
 }
