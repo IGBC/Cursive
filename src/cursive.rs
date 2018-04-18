@@ -345,11 +345,11 @@ impl Cursive {
 
     fn layout(&mut self) {
         let size = self.screen_size();
-        self.root_mut().layout(size);
+        self.root.layout(size);
     }
 
     fn draw(&mut self) {
-        let sizes = self.root().screen().layer_sizes();
+        let sizes = self.root.screen().layer_sizes();
         if self.last_sizes != sizes {
             self.clear();
             self.last_sizes = sizes;

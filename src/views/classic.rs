@@ -23,10 +23,6 @@ pub struct Classic {
 
     /// The currently rendered screen
     active_screen: usize,
-
-    // Last layer sizes of the stack view.
-    // If it changed, clear the screen.
-    last_sizes: Vec<Vec2>,
 }
 
 impl Classic {
@@ -36,7 +32,6 @@ impl Classic {
             screens: vec![views::StackView::new()],
             menubar: views::Menubar::new(),
             active_screen: 0,
-            last_sizes: Vec::new(),
         }
     }
 
@@ -209,10 +204,8 @@ impl Classic {
 }
 
 impl View for Classic {
-    fn draw(&self, printer: &Printer) {
+    fn draw(&self, printer: &Printer) {        
         let selected = self.menubar.receive_events();
-
-        // Print the stackview background before the menubar
         let offset = if self.menubar.autohide {
             0
         } else {
@@ -221,6 +214,7 @@ impl View for Classic {
         let id = self.active_screen;
         let sv_printer = printer.offset((0, offset), !selected);
 
+        // Print the stackview background before the menubar
         self.screens[id].draw_bg(&sv_printer);
 
         // Draw the currently active screen
@@ -240,19 +234,13 @@ impl View for Classic {
         self.screens[id].draw_fg(&sv_printer);
     }
 
-    fn layout(&mut self, v: Vec2) {
-        let sizes = self.screen().layer_sizes();
-        if self.last_sizes != sizes {
-            self.last_sizes = sizes;
-        }
-
-        let size = self.active_size();
+    fn layout(&mut self, v: Vec2) {        
         let offset = match self.menubar.autohide {
             true => 0,
             false => 1,
         };
 
-        let size = size.saturating_sub((0, offset));
+        let size = v.saturating_sub((0, offset));
         self.screen_mut().layout(size);
     }
 
@@ -262,7 +250,7 @@ impl View for Classic {
 
     fn required_size(&mut self, constraint: Vec2) -> Vec2 {
         let _ = constraint;
-        Vec2::new(1, 1)
+        Vec2::new(0, 0)
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
